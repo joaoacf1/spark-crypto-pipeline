@@ -44,7 +44,7 @@ def process_data(spark, input_path, output_path):
 if __name__ == '__main__':
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    raw_path = os.path.join(base_dir, "data", "raw", "raw_crypto_prices.csv")
+    raw_path = os.path.join(base_dir, "data", "raw")
     processed_dir = os.path.join(base_dir, "data", "processed")
     processed_path = os.path.join(processed_dir, "processed_crypto_data.parquet")
 

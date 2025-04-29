@@ -36,7 +36,8 @@ def save_to_csv(path, df):
 
 if __name__ == '__main__':
     raw_dir = os.path.join(base_dir, 'data', 'raw')
-    raw_file_path = os.path.join(raw_dir, 'raw_crypto_prices.csv')
+    timestamp = datetime.now().strftime('%Y%m%dT%H%M')
+    raw_file_path = os.path.join(raw_dir, f"raw_crypto_prices_{timestamp}.csv")
 
     os.makedirs(raw_dir, exist_ok=True)
 
