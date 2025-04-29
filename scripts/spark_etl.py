@@ -17,4 +17,3 @@ df = df.withColumn("previous_price", lag("price").over(windowSpec))
 df = df.withColumn("price_change_pct", ((col("price") - col("previous_price")) / col("previous_price")) * 100)
 
 df.write.mode("overwrite").parquet("processed_crypto_data.parquet")
-# df.write.mode("overwrite").csv("processed_crypto_data.csv", header=True)
