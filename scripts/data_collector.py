@@ -1,16 +1,13 @@
 import pandas as pd
 import requests
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 
-# Define a pasta raiz do projeto
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Cria a pasta de logs se não existir
 os.makedirs(os.path.join(base_dir, 'logs'), exist_ok=True)
 
-# Configuração do logger
 logging.basicConfig(
     filename=os.path.join(base_dir, 'logs', 'collector.log'),
     level=logging.INFO,
@@ -22,7 +19,7 @@ def fetch_prices():
         response = requests.get("https://api.binance.com/api/v3/ticker/price")
         data = response.json()
         df = pd.DataFrame(data)
-        df["timestamp"] = datetime.utcnow()
+        df["timestamp"] = datetime.now(timezone.utc)
         logging.info(f"{len(df)} symbols collected from Binance")
         return df
     except Exception as e:
@@ -41,7 +38,6 @@ if __name__ == '__main__':
     raw_dir = os.path.join(base_dir, 'data', 'raw')
     raw_file_path = os.path.join(raw_dir, 'raw_crypto_prices.csv')
 
-    # Cria a pasta data/raw se não existir
     os.makedirs(raw_dir, exist_ok=True)
 
     df = fetch_prices()

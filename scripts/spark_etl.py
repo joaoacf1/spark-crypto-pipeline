@@ -4,7 +4,6 @@ from pyspark.sql.window import Window
 import logging
 import os
 
-# Cria a pasta de logs se não existir
 os.makedirs(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs'), exist_ok=True)
 
 logging.basicConfig(
@@ -43,14 +42,12 @@ def process_data(spark, input_path, output_path):
         raise
 
 if __name__ == '__main__':
-    # Descobre a pasta base (raiz do projeto)
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     raw_path = os.path.join(base_dir, "data", "raw", "raw_crypto_prices.csv")
     processed_dir = os.path.join(base_dir, "data", "processed")
     processed_path = os.path.join(processed_dir, "processed_crypto_data.parquet")
 
-    # Cria a pasta de dados processados se não existir
     os.makedirs(processed_dir, exist_ok=True)
 
     spark = start_spark()

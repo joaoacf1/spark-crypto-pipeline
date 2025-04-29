@@ -1,22 +1,49 @@
 from pyspark.sql import SparkSession
+import logging
+import os
 
-spark = SparkSession.builder.appName("CryptoETL").getOrCreate()
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-df = spark.read.parquet("processed_crypto_data.parquet")
+os.makedirs(os.path.join(base_dir, 'logs'), exist_ok=True)
 
-df.createOrReplaceTempView("crypto")
-
-result = spark.sql(
-    """
-    SELECT symbol,
-              price,
-              timestamp,
-              moving_avg,
-              price_change_pct
-        FROM crypto
-        ORDER BY price_change_pct DESC
-        LIMIT 10
-              """
+logging.basicConfig(
+    filename=os.path.join(os.path.join(base_dir, 'logs'), 'queries.log'),
+    level=logging.INFO,
+    format='%(asctime)s:%(levelname)s:%(message)s'
 )
 
-result.show()
+def run_query():
+
+      try:
+            spark = SparkSession.builder.appName("CryptoQueries").getOrCreate()
+
+            df = spark.read.parquet(os.path.join(base_dir, "data", "processed", "processed_crypto_data.parquet"))
+
+            df.createOrReplaceTempView("crypto")
+
+            result = spark.sql(
+            """
+            SELECT symbol,
+                   AVG(price) AS avg_price,
+                   MAX(price_change_pct) AS max_change,
+                   MIN(price_change_pct) AS min_change
+            FROM crypto
+            GROUP BY symbol
+            ORDER BY avg_price DESC
+            LIMIT 10
+                        """
+            )
+
+            result.show()
+            
+            logging.info("Data query successfully")
+            
+      except Exception as e:
+            logging.error(f"Error when querying data {e}")
+            raise
+      
+
+if __name__ == "__main__":
+      run_query()
+      
+      
