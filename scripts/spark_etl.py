@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, avg, lag
+from pyspark.sql.functions import col, avg, lag, to_date
 from pyspark.sql.window import Window
 import logging
 import os
@@ -15,13 +15,13 @@ logging.basicConfig(
 def start_spark():
     return SparkSession.builder.appName("CryptoETL").getOrCreate()
     
-def process_data(spark, input_path, output_path):
+def process_data(spark, input_dir, output_path):
     try:
-        if not os.path.exists(input_path):
-            logging.error(f"Input file not found: {input_path}")
-            raise FileNotFoundError(f"Input file not found: {input_path}")
+        if not os.path.exists(input_dir):
+            logging.error(f"Input file not found: {input_dir}")
+            raise FileNotFoundError(f"Input file not found: {input_dir}")
 
-        df = spark.read.csv(input_path, header=True, inferSchema=True)
+        df = spark.read.csv(input_dir, header=True, inferSchema=True)
 
         df = df.withColumn("price", col("price").cast("float"))
 
@@ -33,7 +33,9 @@ def process_data(spark, input_path, output_path):
 
         df = df.withColumn("price_change_pct", ((col("price") - col("previous_price")) / col("previous_price")) * 100)
 
-        df.write.mode("append").parquet(output_path)
+        df = df.withColumn("date", to_date("timestamp"))
+        
+        df.write.mode("append").partitionBy("date").parquet(output_path)
         
         logging.info(f"Data saved successfully in {output_path}")
 
