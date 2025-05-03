@@ -12,11 +12,6 @@ AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
-print(f"AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}")
-print(f"AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}")
-print(f"AWS_DEFAULT_REGION={AWS_DEFAULT_REGION}")
-print(f"S3_BUCKET_NAME={S3_BUCKET_NAME}")
-
 logging.basicConfig(
     filename=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', 's3_uploader.log'),
     level=logging.INFO,
