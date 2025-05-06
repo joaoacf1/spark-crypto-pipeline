@@ -1,12 +1,14 @@
-# airflow/dags/crypto_collect_dag.py
-
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
-from data_collector import collect_data
+import sys
+import os
+from pathlib import Path
 
+sys.path.append(str(Path(__file__).parent.parent))
 
-# Argumentos padrão da DAG
+from scripts.data_collector import collect_data
+
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -17,7 +19,6 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-# Define a DAG
 with DAG(
     dag_id='crypto_collect',
     default_args=default_args,
@@ -30,9 +31,9 @@ with DAG(
 
     collect_task = PythonOperator(
         task_id='collect_binance_data',
-        python_callable=collect_data,  # Função do script
+        python_callable=collect_data,  
         dag=dag,
     )
 
-    collect_task  # Só uma tarefa (não precisa de >>)
+    collect_task 
 
