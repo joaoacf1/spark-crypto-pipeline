@@ -34,10 +34,10 @@ def upload_directory_to_s3(directory, bucket, prefix=""):
                 try:
                     s3.upload_file(local_path, bucket, s3_path)
                     logging.info(f"Uploaded {local_path} to s3://{bucket}/{s3_path}")
-                    print(f"✔️ {file} enviado com sucesso!")
+                    print(f"✔️ {file} successfully sent!")
                 except Exception as e:
-                    logging.error(f"Erro ao enviar {file}: {e}")
-                    print(f"❌ Falha ao enviar {file}: {e}")
+                    logging.error(f"Error sending {file}: {e}")
+                    print(f"❌ Error sending {file}: {e}")
 
 if __name__ == "__main__":
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

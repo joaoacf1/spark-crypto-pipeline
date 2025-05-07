@@ -9,4 +9,7 @@ RUN apt-get update \
 USER airflow
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
-RUN pip install --no-cache-dir apache-airflow-providers-apache-spark
+RUN pip install --no-cache-dir \ 
+    apache-airflow-providers-apache-spark \
+    boto3 \
+    apache-airflow-providers-amazon
