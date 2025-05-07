@@ -1,20 +1,27 @@
 from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
-from datetime import datetime
+from datetime import datetime, timedelta
+
 
 default_args = {
-    'start_date': datetime(2025, 1, 1),
-    'catchup': False
+    'owner': 'airflow',
+    'depends_on_past': False,
+    'email': ['joaoantoniocorreaf@gmail.com'],
+    'email_on_failure': True,
+    'email_on_retry': True,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
 }
 
-with DAG('pyspark_example',
+
+with DAG('crypto_spark_etl',
          default_args=default_args,
          schedule=None,
-         description='DAG example with Pyspark') as dag:
+         description='Transform data with Spark') as dag:
 
-    submit_job = SparkSubmitOperator(
-        task_id='submit_pyspark_job',
-        application='/opt/airflow/scripts/hello_spark.py',
+    run_spark_etl = SparkSubmitOperator(
+        task_id='run_spark_etl',
+        application='/opt/airflow/scripts/spark_etl.py',
         conn_id='spark_default',
         verbose=True,
         total_executor_cores=1,
@@ -23,3 +30,5 @@ with DAG('pyspark_example',
         driver_memory='1g',
         num_executors=1
     )
+
+    run_spark_etl
