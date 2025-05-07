@@ -14,31 +14,64 @@ logging.basicConfig(
 )
 
 def start_spark():
-    return SparkSession.builder.appName("CryptoETL").getOrCreate()
+    spark = SparkSession.builder \
+        .appName("CryptoETL") \
+        .config("spark.sql.files.ignoreCorruptFiles", "true") \
+        .config("spark.sql.files.ignoreMissingFiles", "true") \
+        .getOrCreate()
+    return spark
     
 def process_data(spark, input_dir, output_path):
-    csv_files = glob.glob(os.path.join(input_dir, "*.csv"))
+    abs_input_dir = os.path.abspath(input_dir)
+    abs_output_path = os.path.abspath(output_path)
+    logging.info(f"Input directory (absolute): {abs_input_dir}")
+    logging.info(f"Output path (absolute): {abs_output_path}")
+    
+    csv_files = glob.glob(os.path.join(abs_input_dir, "*.csv"))
+    logging.info(f"CSV files found: {csv_files}")
+    
     if not csv_files:
-        logging.error(f"No CSV files found in {input_dir}")
-        raise FileNotFoundError(f"No CSV files found in {input_dir}")
+        logging.error(f"No CSV files found in {abs_input_dir}")
+        raise FileNotFoundError(f"No CSV files found in {abs_input_dir}")
 
-    df = spark.read.csv(csv_files, header=True, inferSchema=True)
+    try:
+        df = spark.read \
+            .option("header", "true") \
+            .option("inferSchema", "false") \
+            .option("mode", "PERMISSIVE") \
+            .schema("""
+                symbol STRING,
+                price STRING,
+                timestamp TIMESTAMP
+            """) \
+            .csv(csv_files)
+        
+        logging.info("Successfully read CSV files")
+        logging.info("Schema:")
+        df.printSchema()
+        logging.info("Sample data:")
+        df.show(5, truncate=False)
 
-    df = df.withColumn("price", col("price").cast("float"))
+        df = df.withColumn("price_float", 
+            col("price").cast("float")
+        ).drop("price").withColumnRenamed("price_float", "price")
 
-    windowSpec = Window.partitionBy("symbol").orderBy("timestamp")
+        windowSpec = Window.partitionBy("symbol").orderBy("timestamp")
 
-    df = df.withColumn("moving_avg", avg("price").over(windowSpec.rowsBetween(-4, 0)))
+        df = df.withColumn("moving_avg", avg("price").over(windowSpec.rowsBetween(-4, 0)))
+        df = df.withColumn("previous_price", lag("price").over(windowSpec))
+        df = df.withColumn("price_change_pct", 
+            ((col("price") - col("previous_price")) / col("previous_price")) * 100
+        )
+        df = df.withColumn("date", to_date("timestamp"))
 
-    df = df.withColumn("previous_price", lag("price").over(windowSpec))
+        logging.info(f"Writing data to: {abs_output_path}")
+        df.write.mode("append").partitionBy("date").parquet(abs_output_path)
+        logging.info("Data successfully written")
 
-    df = df.withColumn("price_change_pct", ((col("price") - col("previous_price")) / col("previous_price")) * 100)
-
-    df = df.withColumn("date", to_date("timestamp"))
-    
-    df.write.mode("append").partitionBy("date").parquet(output_path)
-    
-    logging.info(f"Data saved successfully in {output_path}")
+    except Exception as e:
+        logging.error(f"Error processing data: {str(e)}", exc_info=True)
+        raise
 
 if __name__ == '__main__':
     try:
@@ -46,11 +79,14 @@ if __name__ == '__main__':
         raw_path = os.path.join(base_dir, "data", "raw")
         processed_dir = os.path.join(base_dir, "data", "processed")
         processed_path = os.path.join(processed_dir, "processed_crypto_data.parquet")
+        
         os.makedirs(processed_dir, exist_ok=True)
+        
         spark = start_spark()
         process_data(spark, raw_path, processed_path)
         spark.stop()
+        
     except Exception as e:
-        logging.error(f"ETL failed: {e}", exc_info=True)
+        logging.error(f"ETL failed: {str(e)}", exc_info=True)
         import sys
         sys.exit(1)
