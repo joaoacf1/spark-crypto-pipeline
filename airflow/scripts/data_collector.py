@@ -3,6 +3,8 @@ import requests
 import logging
 from datetime import datetime, timezone
 import os
+import boto3
+from io import StringIO
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -26,25 +28,37 @@ def fetch_prices():
         logging.error(f"Data extraction error: {e}")
         raise
           
-def save_to_csv(path, df):
+def save_to_s3(df, bucket_name, object_key):
     try:
-        df.to_csv(path, index=False)
-        logging.info(f"Data saved successfully in {path}")
+        s3_client = boto3.client('s3')
+        
+        csv_buffer = StringIO()
+        df.to_csv(csv_buffer, index=False)
+        
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=object_key,
+            Body=csv_buffer.getvalue()
+        )
+        logging.info(f"Data successfully saved to S3 bucket: {bucket_name}/{object_key}")
     except Exception as e:
-        logging.error(f"Error when saving data: {e}")
+        logging.error(f"Error when saving data to S3: {e}")
         raise
-    
     
 
 def collect_data():
-    raw_dir = os.path.join(base_dir, 'data', 'raw')
-    timestamp = datetime.now().strftime('%Y%m%dT%H%M')
-    raw_file_path = os.path.join(raw_dir, f"raw_crypto_prices_{timestamp}.csv")
-
-    os.makedirs(raw_dir, exist_ok=True)
-
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M')
+    
+    bucket_name = os.environ.get('S3_BUCKET_NAME')
+    if not bucket_name:
+        logging.error("S3_BUCKET_NAME environment variable is not set")
+        raise ValueError("S3_BUCKET_NAME environment variable is not set")
+    
+    object_key = f"raw/raw_crypto_prices_{timestamp}.csv"
+    
     df = fetch_prices()
-    save_to_csv(raw_file_path, df)
+    
+    save_to_s3(df, bucket_name, object_key)
 
 if __name__ == '__main__':
     collect_data()
