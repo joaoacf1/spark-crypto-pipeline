@@ -1,28 +1,47 @@
 import os
 import logging
 import boto3
+from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-dotenv_path = os.path.join(base_dir, '.env')
-load_dotenv(dotenv_path=dotenv_path)
-
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION")
-S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
-
+# Configure logging
 logging.basicConfig(
-    filename=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', 's3_uploader.log'),
     level=logging.INFO,
     format='%(asctime)s:%(levelname)s:%(message)s'
 )
+logger = logging.getLogger(__name__)
 
 def upload_directory_to_s3(directory, bucket, prefix=""):
+    """
+    Upload all parquet files from a directory to S3.
+    
+    Args:
+        directory (str): Local directory containing parquet files
+        bucket (str): S3 bucket name
+        prefix (str): S3 key prefix
+    """
+    if not os.path.exists(directory):
+        raise ValueError(f"Directory {directory} does not exist")
+
     s3 = boto3.client('s3',
-                      aws_access_key_id=AWS_ACCESS_KEY_ID,
-                      aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-                      region_name=AWS_DEFAULT_REGION)
+                     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                     region_name=os.getenv("AWS_DEFAULT_REGION"))
+
+    # Check if bucket exists
+    try:
+        s3.head_bucket(Bucket=bucket)
+    except ClientError as e:
+        error_code = e.response['Error']['Code']
+        if error_code == '404':
+            raise ValueError(f"Bucket {bucket} does not exist")
+        elif error_code == '403':
+            raise ValueError(f"Access denied to bucket {bucket}")
+        else:
+            raise
+
+    uploaded_files = []
+    failed_files = []
 
     for root, _, files in os.walk(directory):
         for file in files:
@@ -33,13 +52,36 @@ def upload_directory_to_s3(directory, bucket, prefix=""):
 
                 try:
                     s3.upload_file(local_path, bucket, s3_path)
-                    logging.info(f"Uploaded {local_path} to s3://{bucket}/{s3_path}")
-                    print(f"✔️ {file} successfully sent!")
+                    logger.info(f"Uploaded {local_path} to s3://{bucket}/{s3_path}")
+                    uploaded_files.append(file)
                 except Exception as e:
-                    logging.error(f"Error sending {file}: {e}")
-                    print(f"❌ Error sending {file}: {e}")
+                    logger.error(f"Error uploading {file}: {str(e)}")
+                    failed_files.append(file)
+
+    return {
+        "uploaded_files": uploaded_files,
+        "failed_files": failed_files,
+        "total_uploaded": len(uploaded_files),
+        "total_failed": len(failed_files)
+    }
 
 if __name__ == "__main__":
+    load_dotenv()
+    
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     parquet_dir = os.path.join(base_dir, "data", "processed")
-    upload_directory_to_s3(parquet_dir, S3_BUCKET_NAME, prefix="processed/")
+    bucket_name = os.getenv("S3_BUCKET_NAME")
+    
+    if not bucket_name:
+        raise ValueError("S3_BUCKET_NAME environment variable not set")
+    
+    result = upload_directory_to_s3(parquet_dir, bucket_name, prefix="processed/")
+    
+    print(f"\nUpload Summary:")
+    print(f"Total files uploaded: {result['total_uploaded']}")
+    print(f"Total files failed: {result['total_failed']}")
+    
+    if result['failed_files']:
+        print("\nFailed files:")
+        for file in result['failed_files']:
+            print(f"- {file}")
