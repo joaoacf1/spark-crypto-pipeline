@@ -3,12 +3,11 @@ from pyspark.sql.functions import col, avg, lag, to_date
 from pyspark.sql.window import Window
 import logging
 import os
-import glob
 
-os.makedirs(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs'), exist_ok=True)
-
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.makedirs(os.path.join(base_dir, 'logs'), exist_ok=True)
 logging.basicConfig(
-    filename=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs', 'etl.log'),
+    filename=os.path.join(base_dir, 'logs', 'etl.log'),
     level=logging.INFO,
     format='%(asctime)s:%(levelname)s:%(message)s'
 )
@@ -18,23 +17,26 @@ def start_spark():
         .appName("CryptoETL") \
         .config("spark.sql.files.ignoreCorruptFiles", "true") \
         .config("spark.sql.files.ignoreMissingFiles", "true") \
+        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+        .config("spark.hadoop.fs.s3a.access.key", os.environ.get("AWS_ACCESS_KEY_ID")) \
+        .config("spark.hadoop.fs.s3a.secret.key", os.environ.get("AWS_SECRET_ACCESS_KEY")) \
+        .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+        .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "true") \
         .getOrCreate()
     return spark
     
-def process_data(spark, input_dir, output_path):
-    abs_input_dir = os.path.abspath(input_dir)
-    abs_output_path = os.path.abspath(output_path)
-    logging.info(f"Input directory (absolute): {abs_input_dir}")
-    logging.info(f"Output path (absolute): {abs_output_path}")
-    
-    csv_files = glob.glob(os.path.join(abs_input_dir, "*.csv"))
-    logging.info(f"CSV files found: {csv_files}")
-    
-    if not csv_files:
-        logging.error(f"No CSV files found in {abs_input_dir}")
-        raise FileNotFoundError(f"No CSV files found in {abs_input_dir}")
-
+def process_data(spark):
     try:
+        bucket_name = os.environ.get('S3_BUCKET_NAME')
+        if not bucket_name:
+            logging.error("S3_BUCKET_NAME environment variable is not set")
+            raise ValueError("S3_BUCKET_NAME environment variable is not set")
+        
+        s3_input_path = f"s3a://{bucket_name}/raw/"
+        s3_output_path = f"s3a://{bucket_name}/processed/crypto_data.parquet"
+        
+        logging.info(f"Reading data from: {s3_input_path}")
+        
         df = spark.read \
             .option("header", "true") \
             .option("inferSchema", "false") \
@@ -44,14 +46,16 @@ def process_data(spark, input_dir, output_path):
                 price STRING,
                 timestamp TIMESTAMP
             """) \
-            .csv(csv_files)
+            .csv(s3_input_path)
         
-        logging.info("Successfully read CSV files")
+        if df.rdd.isEmpty():
+            logging.warning("No data found to process")
+            return
+            
+        logging.info(f"Processing {df.count()} records")
         logging.info("Schema:")
         df.printSchema()
-        logging.info("Sample data:")
-        df.show(5, truncate=False)
-
+        
         df = df.withColumn("price_float", 
             col("price").cast("float")
         ).drop("price").withColumnRenamed("price_float", "price")
@@ -65,9 +69,9 @@ def process_data(spark, input_dir, output_path):
         )
         df = df.withColumn("date", to_date("timestamp"))
 
-        logging.info(f"Writing data to: {abs_output_path}")
-        df.write.mode("append").partitionBy("date").parquet(abs_output_path)
-        logging.info("Data successfully written")
+        logging.info(f"Writing processed data to: {s3_output_path}")
+        df.write.mode("overwrite").partitionBy("date").parquet(s3_output_path)
+        logging.info("Data successfully processed and written to S3")
 
     except Exception as e:
         logging.error(f"Error processing data: {str(e)}", exc_info=True)
@@ -75,15 +79,8 @@ def process_data(spark, input_dir, output_path):
 
 if __name__ == '__main__':
     try:
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        raw_path = os.path.join(base_dir, "data", "raw")
-        processed_dir = os.path.join(base_dir, "data", "processed")
-        processed_path = os.path.join(processed_dir, "processed_crypto_data.parquet")
-        
-        os.makedirs(processed_dir, exist_ok=True)
-        
         spark = start_spark()
-        process_data(spark, raw_path, processed_path)
+        process_data(spark)
         spark.stop()
         
     except Exception as e:
