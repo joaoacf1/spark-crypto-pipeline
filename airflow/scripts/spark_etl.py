@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, avg, lag, to_date
+from pyspark.sql.functions import col, avg, lag, to_date, expr
 from pyspark.sql.window import Window
 import logging
 import os
@@ -56,6 +56,8 @@ def process_data(spark):
         logging.info("Schema:")
         df.printSchema()
         
+        df = df.withColumn("currency", expr("substring(symbol, length(symbol)-3, 4)")).filter(col('currency') == 'USDT').drop('currency')
+
         df = df.withColumn("price_float", 
             col("price").cast("float")
         ).drop("price").withColumnRenamed("price_float", "price")
