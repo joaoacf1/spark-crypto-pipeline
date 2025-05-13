@@ -25,7 +25,7 @@ with DAG(
     'crypto_pipeline',
     default_args=default_args,
     description='Complete crypto data pipeline: collect, process and store data',
-    schedule='@daily',
+    schedule='@hourly',
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=['crypto', 'binance', 'spark', 's3'],
