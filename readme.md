@@ -14,15 +14,7 @@ A complete end-to-end data engineering project that collects, processes, stores,
   - [Installation](#installation)
   - [AWS Resource Configuration](#aws-resource-configuration)
   - [Grafana Dashboard Setup](#grafana-dashboard-setup)
-- [Using the Pipeline](#-using-the-pipeline)
-  - [Accessing Airflow](#accessing-airflow)
-  - [DAG Configuration](#dag-configuration)
-  - [Monitoring Data Flow](#monitoring-data-flow)
-- [Dashboard Features](#-dashboard-features)
-- [Troubleshooting](#-troubleshooting)
 - [Contributing](#-contributing)
-- [License](#-license)
-- [Acknowledgements](#-acknowledgements)
 
 ## 🔹 Overview
 
