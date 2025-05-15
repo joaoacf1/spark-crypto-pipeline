@@ -94,8 +94,6 @@ graph TD
    SELECT DISTINCT symbol FROM processed WHERE price > 0
    ```
 
-
-
 ## 🔌 Project Setup
 
 ### Prerequisites
@@ -192,7 +190,6 @@ After logging into Airflow, follow these steps to set up the connection to your 
 
 Now Airflow is ready to orchestrate Spark jobs in your pipeline!
 
-
 ### AWS Resource Configuration
 
 #### 1. Create an S3 Bucket
@@ -255,8 +252,6 @@ Now Airflow is ready to orchestrate Spark jobs in your pipeline!
 7. Choose an existing database or create a new one (e.g., `dbcrypto`)
 8. Configure the crawler schedule (e.g., run every hour)
 9. Review and create the crawler
-
-![Glue Crawler Setup](docs/images/glue-crawler.png)
 
 #### 4. Run the Glue Crawler
 
@@ -357,7 +352,6 @@ Now you can create dashboards and panels in Grafana Cloud just as you would in a
 Refer to the rest of the documentation for example queries and dashboard ideas.
 
 > **Note:** All dashboard features, alerts, and variables described in this documentation can be created and managed directly in your Grafana Cloud workspace.
-
 
 ##### Volatility Dashboard
 
